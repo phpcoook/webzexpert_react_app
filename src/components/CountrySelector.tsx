@@ -6,16 +6,19 @@ interface CountrySelectorProps {
 	countries: CountriesResponse | null;
 	selectedCountry: Country | null;
 	onCountrySelect: (country: Country) => void;
+	containerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const CountrySelector: React.FC<CountrySelectorProps> = ({
 	countries,
 	selectedCountry,
 	onCountrySelect,
+	containerRef,
 }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -31,10 +34,36 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, []);
 
+	useEffect(() => {
+		if (!isOpen) return;
+
+		const activeItem = document.querySelector(
+			`[data-country-index='${highlightedIndex}']`
+		);
+		if (activeItem) {
+			(activeItem as HTMLElement).scrollIntoView({
+				block: "nearest",
+			});
+		}
+	}, [highlightedIndex, isOpen]);
+
 	const filteredCountries = countries
-		? Object.values(countries).filter((country) =>
-				country.name.toLowerCase().includes(searchTerm.toLowerCase())
-		  )
+		? Object.values(countries)
+				.filter((country) =>
+					country.name.toLowerCase().includes(searchTerm.toLowerCase())
+				)
+				.sort((a, b) => {
+					const aName = a.name.toLowerCase();
+					const bName = b.name.toLowerCase();
+					const term = searchTerm.toLowerCase();
+
+					const aStartsWith = aName.startsWith(term);
+					const bStartsWith = bName.startsWith(term);
+
+					if (aStartsWith && !bStartsWith) return -1;
+					if (!aStartsWith && bStartsWith) return 1;
+					return aName.localeCompare(bName); // fallback alphabetical
+				})
 		: [];
 
 	const getFlagEmoji = (countryCode: string) => {
@@ -60,7 +89,7 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 			<button
 				type='button'
 				onClick={() => setIsOpen(!isOpen)}
-				className='w-full flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'>
+				className='w-full flex items-center justify-between px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'>
 				<div className='flex items-center space-x-3'>
 					{selectedCountry && (
 						<>
@@ -70,23 +99,21 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 							<span className='font-medium text-gray-900'>
 								{selectedCountry.calling_code}
 							</span>
-							<span className='text-gray-600'>{selectedCountry.name}</span>
 						</>
 					)}
 					{!selectedCountry && (
 						<span className='text-gray-400'>Select country</span>
 					)}
 				</div>
-				<ChevronDown
-					className={`h-5 w-5 text-gray-400 transition-transform ${
-						isOpen ? "rotate-180" : ""
-					}`}
-				/>
 			</button>
 
 			{/* Dropdown */}
 			{isOpen && (
-				<div className='absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden'>
+				<div
+					className='absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden'
+					style={{
+						width: containerRef?.current?.offsetWidth || "100%",
+					}}>
 					{/* Search Field */}
 					<div className='p-3 border-b border-gray-100'>
 						<div className='relative'>
@@ -95,7 +122,28 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 								type='text'
 								placeholder='Search countries...'
 								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
+								onChange={(e) => {
+									setSearchTerm(e.target.value);
+									setHighlightedIndex(0);
+								}}
+								onKeyDown={(e) => {
+									if (!filteredCountries.length) return;
+
+									if (e.key === "ArrowDown") {
+										e.preventDefault();
+										setHighlightedIndex((prev) =>
+											prev < filteredCountries.length - 1 ? prev + 1 : 0
+										);
+									} else if (e.key === "ArrowUp") {
+										e.preventDefault();
+										setHighlightedIndex((prev) =>
+											prev > 0 ? prev - 1 : filteredCountries.length - 1
+										);
+									} else if (e.key === "Enter" && highlightedIndex >= 0) {
+										e.preventDefault();
+										handleCountrySelect(filteredCountries[highlightedIndex]);
+									}
+								}}
 								className='w-full pl-10 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
 								autoFocus
 							/>
@@ -105,12 +153,17 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({
 					{/* Country List */}
 					<div className='max-h-60 overflow-y-auto'>
 						{filteredCountries.length > 0 ? (
-							filteredCountries.map((country) => (
+							filteredCountries.map((country, index) => (
 								<button
 									key={country.id}
+									data-country-index={index}
 									type='button'
 									onClick={() => handleCountrySelect(country)}
-									className='w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left'>
+									className={`w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors ${
+										index === highlightedIndex
+											? "bg-gray-100"
+											: "hover:bg-gray-50"
+									}`}>
 									<span className='text-2xl'>
 										{getFlagEmoji(country.country_code || "")}
 									</span>

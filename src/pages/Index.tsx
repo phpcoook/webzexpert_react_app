@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CountrySelector } from "../components/CountrySelector";
 import { PhoneInput } from "../components/PhoneInput";
 import { SubmitButton } from "../components/SubmitButton";
@@ -16,6 +16,8 @@ const Index = () => {
 	const { countries, loading: countriesLoading } = useCountries();
 	const { submitTwoFactorAuth } = useAuth();
 	const { toast } = useToast();
+
+	const inputGroupRef = useRef<HTMLDivElement>(null);
 
 	// Set default country to US when countries load
 	useEffect(() => {
@@ -110,27 +112,26 @@ const Index = () => {
 						{/* Country Selector */}
 						<div>
 							<label className='block text-sm font-medium text-gray-700 mb-2'>
-								Country
-							</label>
-							<CountrySelector
-								countries={countries}
-								selectedCountry={selectedCountry}
-								onCountrySelect={setSelectedCountry}
-							/>
-						</div>
-
-						{/* Phone Input */}
-						<div>
-							<label className='block text-sm font-medium text-gray-700 mb-2'>
 								Phone Number
 							</label>
-							<PhoneInput
-								value={phoneNumber}
-								onChange={setPhoneNumber}
-								selectedCountry={selectedCountry}
-							/>
+							<div ref={inputGroupRef} className='flex gap-4 relative'>
+								<div className='w-1/4'>
+									<CountrySelector
+										countries={countries}
+										selectedCountry={selectedCountry}
+										onCountrySelect={setSelectedCountry}
+										containerRef={inputGroupRef}
+									/>
+								</div>
+								<div className='flex-1'>
+									<PhoneInput
+										value={phoneNumber}
+										onChange={setPhoneNumber}
+										selectedCountry={selectedCountry}
+									/>
+								</div>
+							</div>
 						</div>
-
 						{/* Submit Button */}
 						<SubmitButton isSubmitting={isSubmitting} />
 					</form>
